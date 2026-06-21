@@ -1,7 +1,7 @@
 import frappe
 
 TOKEN = "__CHAT_TOKEN__"
-FUNNEL = "https://hubert-cloud-sp6.tail818cf8.ts.net:10000"
+FUNNEL = "__FUNNEL_BASE__"  # substituted at deploy (like __CHAT_TOKEN__) — no hardcoded host
 ROUTE = "agent-chat"
 
 iframe_src = f"{FUNNEL}/chat?chat_token={TOKEN}"
