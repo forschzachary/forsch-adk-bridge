@@ -449,18 +449,15 @@ async def main(config_path: str = "bridge_config.yaml") -> None:
     )
     log = logging.getLogger("adk_bridge")
 
-    # Session service (aiosqlite required for async SQLite)
-    session_db = config["session"]["db_path"]
-    db_url = f"sqlite+aiosqlite:///{session_db}"
-    session_service = DatabaseSessionService(db_url=db_url)
+    # Session service + agent registry (shared with the Chainlit/CRM surfaces
+    # via runtime.get_runtime() so all surfaces load agents the same way once).
+    from forsch.adk_bridge.runtime import get_runtime
 
-    # Import agents
-    agents: dict[str, object] = {}
-    for name, spec in config["agents"].items():
-        if name == "dm_fallback":
-            continue
-        agents[name] = _import_agent(spec["agent_package"], spec["agent_attr"])
-        log.info("loaded agent %s from %s.%s", name, spec["agent_package"], spec["agent_attr"])
+    runtime = get_runtime()
+    session_service = runtime.session_service
+    agents: dict[str, object] = runtime.agents
+    for name in agents:
+        log.info("loaded agent %s", name)
 
     # Channel map
     channel_map = _build_channel_map(config)
