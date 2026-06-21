@@ -20,3 +20,20 @@ Discord listener). Discord is a stub per the chat-surface design.
 
 Revert to the Discord bridge: set Dockerfile CMD back to
 `["python","-m","forsch.adk_bridge.bridge"]` + rebuild.
+
+## Operational gotcha — bridge.env changes require RECREATE, not restart
+`env_file` (bridge.env) is read at container CREATE, not on `docker restart`.
+So editing bridge.env (e.g. adding per-agent `ADK_LITELLM_KEY_*` keys) and then
+`docker restart adk-bridge` does **NOT** load the new vars — agents silently fall
+back to the shared `LITELLM_HERMES_KEY` (looks fine, but the per-agent keys are
+never used). To apply bridge.env changes:
+
+    cd /root/.hermes/workspace/adk/bridge && docker compose up -d
+
+Then verify the new env is actually in the container:
+
+    docker exec adk-bridge printenv ADK_LITELLM_KEY_STABILITY
+
+(Agents build their `LiteLlm` at import time, so the env must be present at
+container create. Per-agent model strings need the same `openai/` provider
+prefix as `FORSCH_ADK_MODEL`, see the Model note above.)
