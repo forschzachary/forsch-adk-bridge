@@ -33,7 +33,7 @@ def test_bridge_config_imports_stability_agent():
     agent = _import_agent(spec["agent_package"], spec["agent_attr"])
 
     assert agent.name == "stability_agent"
-    assert len(agent.tools) == 4
+    assert len(agent.tools) == 7
 
 
 def test_bridge_pyproject_declares_stability_agent_dependency():
@@ -51,7 +51,7 @@ def test_agent_spec_matches_bridge_route():
     assert stability["package"] == "forsch.agent_stability.agent"
     assert stability["attr"] == "root_agent"
     assert "#team-stability" in stability["discord_channels"]
-    assert stability["safety_level"] == "read_only"
+    assert stability["safety_level"] == "local_write"
 
 
 def test_crm_assignee_map_routes_simple_agent_names():

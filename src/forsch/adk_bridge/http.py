@@ -1,3 +1,4 @@
+import re
 import os
 from pathlib import Path
 from fastapi import FastAPI
@@ -82,6 +83,36 @@ class _TokenBridge:
 
 
 app.add_middleware(_TokenBridge)
+
+class _SameSiteNoneMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            return await self.app(scope, receive, send)
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = message.get("headers", [])
+                new_headers = []
+                for k, v in headers:
+                    if k.lower() == b"set-cookie":
+                        v_str = v.decode("utf-8", errors="ignore")
+                        # Replace SameSite=lax or SameSite=Lax
+                        v_str = re.sub(r"(?i)samesite=lax", "SameSite=None", v_str)
+                        # Ensure Secure is present
+                        if "Secure" not in v_str and "secure" not in v_str:
+                            v_str += "; Secure"
+                        new_headers.append((k, v_str.encode("utf-8")))
+                    else:
+                        new_headers.append((k, v))
+                message["headers"] = new_headers
+            await send(message)
+        return await self.app(scope, receive, send_wrapper)
+
+app.add_middleware(_SameSiteNoneMiddleware)
+
 
 
 def main():
