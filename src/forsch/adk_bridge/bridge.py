@@ -26,6 +26,9 @@ from google.adk.runners import Runner, RunConfig
 from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 
+from forsch.adk_bridge.gateway.router import resolve_agent as gateway_resolve_agent, build_source_defaults
+from forsch.adk_bridge.gateway.sources_discord import discord_to_canonical
+
 # ── config loading ──────────────────────────────────────────────────────────
 
 def _load_config(path: str | Path = "bridge_config.yaml") -> dict:
@@ -185,6 +188,7 @@ class ADKBridgeClient(discord.Client):
         self._channel_map = channel_map
         self._session_service = session_service
         self._dm_fallback = config["agents"]["dm_fallback"]
+        self._source_defaults = build_source_defaults(config)
         self._crm_assignee_map = _build_crm_assignee_map(config)
         self._flush_interval = config.get("streaming", {}).get("flush_interval_sec", 0.5)
         self._max_chars = config.get("streaming", {}).get("max_message_chars", 1900)
@@ -194,14 +198,15 @@ class ADKBridgeClient(discord.Client):
         self._log.info("bridge online as %s", self.user)
 
     async def on_message(self, message: discord.Message) -> None:
-        # Ignore own messages and other bots
         if message.author == self.user or message.author.bot:
             return
 
-        # Determine target agent
-        agent_name = self._resolve_agent(message)
+        canonical = discord_to_canonical(message, self._channel_map)
+        agent_name = gateway_resolve_agent(canonical, self._agents.keys(), {
+            **self._config, "source_defaults": self._source_defaults,
+        })
         if agent_name is None:
-            return  # no agent for this channel — silent
+            return  # no agent for this channel — silent (unchanged behavior)
 
         agent = self._agents.get(agent_name)
         if agent is None:
@@ -213,17 +218,15 @@ class ADKBridgeClient(discord.Client):
             flush_interval=self._flush_interval,
             max_chars=self._max_chars,
         )
-
         try:
             await self._run_agent_text(
                 agent_name=agent_name,
                 agent=agent,
-                user_id=f"discord:{message.author.id}",
+                user_id=canonical.sender,
                 session_id=f"{agent_name}:{message.channel.id}",
                 text=message.content,
                 buffer=buffer,
             )
-
         except Exception:
             self._log.exception("agent run failed for %s", agent_name)
             await message.channel.send("(something went wrong — ops agent will see the log)")
