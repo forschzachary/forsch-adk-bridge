@@ -26,17 +26,9 @@ from google.adk.runners import Runner, RunConfig
 from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 
+from forsch.adk_bridge.gateway.render import _visible_parts_text
 from forsch.adk_bridge.gateway.router import resolve_agent as gateway_resolve_agent, build_source_defaults
 from forsch.adk_bridge.gateway.sources_discord import discord_to_canonical
-
-
-def _visible_parts_text(parts) -> str:
-    """Concatenated text from parts that should stream to the user — EXCLUDES the model's
-    reasoning/thought parts (`part.thought == True`), which must never reach Discord/CRM."""
-    return "".join(
-        p.text for p in parts
-        if getattr(p, "text", None) and not getattr(p, "thought", False)
-    )
 
 
 # ── config loading ──────────────────────────────────────────────────────────
